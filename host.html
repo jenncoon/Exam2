@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mission Control: The Heist Leaderboard</title>
+<style>
+:root {
+  --gold: #c9a84c; --gold-light: #e8c97a; --cream: #f5f0e8; --navy: #090f18;
+  --panel: rgba(255,255,255,0.04); --line: rgba(201,168,76,0.3);
+  --ok: #6fd3a3; --warn: #ffb199; --red: #ff8a80;
+  --font-body: Arial, "Helvetica Neue", sans-serif; --font-serif: Georgia, serif;
+}
+[hidden] { display: none !important; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: var(--font-body); background: linear-gradient(180deg, #090f18 0%, #050810 100%);
+  background-attachment: fixed; color: var(--cream); line-height: 1.6; min-height: 100vh;
+}
+.skip-link {
+  position: absolute; top: -100px; left: 1rem; background: var(--gold); color: #0d0901;
+  padding: 0.6rem 1rem; font-weight: 700; border-radius: 4px; z-index: 99; text-decoration: none;
+}
+.skip-link:focus { top: 1rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+.wrap { max-width: 1200px; margin: 0 auto; padding: 1.2rem 1rem 3rem; }
+header.top {
+  display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; justify-content: space-between;
+  padding-bottom: 1rem; border-bottom: 1px solid var(--line); margin-bottom: 1.2rem;
+}
+.eyebrow { font-size: 1rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+h1 { font-family: var(--font-serif); font-size: clamp(1.8rem, 4vw, 2.8rem); line-height: 1.15; }
+h1 span { color: var(--gold); }
+h2 { font-family: var(--font-serif); font-size: 1.5rem; margin-bottom: 0.8rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+button, .btn {
+  font: inherit; font-size: 1rem; font-weight: 700; cursor: pointer;
+  background: transparent; color: var(--gold-light); border: 1px solid var(--gold);
+  border-radius: 4px; padding: 0.6rem 1rem; text-decoration: none; display: inline-block;
+}
+button:hover, .btn:hover { background: rgba(201,168,76,0.15); }
+button.primary { background: var(--gold); color: #0d0901; }
+button.primary:hover { background: var(--gold-light); }
+
+.notice {
+  border: 1px solid var(--warn); background: rgba(255,177,153,0.12); color: #ffe3d9;
+  border-radius: 6px; padding: 0.8rem 1rem; margin-bottom: 1rem; font-size: 1rem;
+}
+.notice[hidden] { display: none; }
+
+.setup { display: grid; grid-template-columns: minmax(260px, 360px) 1fr; gap: 1.2rem; margin-bottom: 1.6rem; }
+@media (max-width: 800px) { .setup { grid-template-columns: 1fr; } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 1.2rem; }
+.qr-tile { background: #fff; border-radius: 6px; padding: 0.4rem; line-height: 0; }
+.qr-tile svg { width: 100%; height: auto; display: block; }
+.join-text { margin-top: 0.8rem; font-size: 1.1rem; text-align: center; word-break: break-all; }
+.join-text strong { color: var(--gold-light); }
+.field { margin-bottom: 1rem; }
+.field label { display: block; font-weight: 700; color: var(--gold); margin-bottom: 0.3rem; }
+.field .hint { font-size: 1rem; color: rgba(245,240,232,0.8); margin-top: 0.25rem; }
+.row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+input[type=text] {
+  flex: 1 1 260px; min-width: 0; font: inherit; font-size: 1.05rem; color: var(--cream);
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(201,168,76,0.55);
+  border-radius: 5px; padding: 0.6rem 0.8rem;
+}
+details.clip { margin-top: 0.4rem; }
+details.clip summary { cursor: pointer; font-weight: 700; color: var(--gold-light); font-size: 1.05rem; padding: 0.4rem 0; }
+details.clip video { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 4px; display: block; margin-top: 0.5rem; }
+details.clip .tr { font-size: 1rem; margin-top: 0.6rem; color: rgba(245,240,232,0.88); }
+details.clip ol { margin: 0.3rem 0 0 1.4rem; }
+
+.status-line { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; font-size: 1rem; margin-bottom: 0.8rem; color: rgba(245,240,232,0.9); }
+.dot { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-right: 0.4rem; background: #888; }
+.dot.ok { background: var(--ok); } .dot.fail { background: var(--warn); }
+
+table.lb { width: 100%; border-collapse: separate; border-spacing: 0 0.5rem; }
+table.lb th { text-align: left; font-size: 1rem; color: var(--gold); padding: 0 0.8rem 0.2rem; font-weight: 700; }
+table.lb td { background: var(--panel); padding: 0.8rem; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.lb td:first-child { border-left: 1px solid var(--line); border-radius: 8px 0 0 8px; width: 4rem; text-align: center; }
+table.lb td:last-child { border-right: 1px solid var(--line); border-radius: 0 8px 8px 0; }
+.rank { font-family: var(--font-serif); font-size: 1.8rem; color: var(--gold-light); }
+.team-name { font-size: 1.4rem; font-weight: 700; line-height: 1.2; }
+.members { font-size: 1rem; color: rgba(245,240,232,0.85); }
+.score { font-size: 1.5rem; font-weight: 700; white-space: nowrap; }
+.score small { font-size: 1rem; font-weight: 400; color: rgba(245,240,232,0.85); }
+.bar { height: 0.6rem; background: rgba(255,255,255,0.12); border-radius: 3px; overflow: hidden; margin-top: 0.3rem; min-width: 110px; }
+.bar > i { display: block; height: 100%; background: var(--gold); }
+.chip { display: inline-block; font-size: 1rem; padding: 0.1rem 0.7rem; border-radius: 999px; border: 1px solid rgba(245,240,232,0.5); white-space: nowrap; }
+.chip.done { border-color: var(--ok); color: #b6f0d3; }
+.chip.playing { border-color: var(--gold); color: var(--gold-light); }
+.badge-tag { color: var(--gold-light); font-weight: 700; font-size: 1rem; }
+.empty { padding: 2rem 1rem; text-align: center; color: rgba(245,240,232,0.85); border: 1px dashed var(--line); border-radius: 8px; font-size: 1.1rem; }
+tr.detail td { border-radius: 8px !important; border: 1px solid var(--line); background: rgba(0,0,0,0.35); padding: 1rem; }
+.ans { width: 100%; border-collapse: collapse; font-size: 1rem; }
+table.lb .ans th, table.lb .ans td, table.lb .ans td:first-child, table.lb .ans td:last-child { text-align: left; width: auto; padding: 0.45rem 0.6rem; border-bottom: 1px solid rgba(201,168,76,0.18); vertical-align: top; background: none; border-radius: 0; border-left: 0; border-right: 0; border-top: 0; }
+table.lb .ans th { color: var(--gold); }
+.ans ul { margin-left: 1.1rem; }
+.ans .earlier { color: rgba(245,240,232,0.8); margin-top: 0.3rem; }
+.pts0 { color: var(--warn); font-weight: 700; } .pts1 { color: var(--gold-light); font-weight: 700; } .pts2 { color: #b6f0d3; font-weight: 700; }
+.missed { margin-top: 1.8rem; }
+.missed ol { margin-left: 1.4rem; }
+.missed li { margin-bottom: 0.7rem; font-size: 1.05rem; }
+.missed .q { color: rgba(245,240,232,0.88); }
+@media (max-width: 760px) {
+  table.lb thead { display: none; }
+  table.lb, table.lb tbody, table.lb tr, table.lb td { display: block; width: 100%; }
+  table.lb tr.row-team { margin-bottom: 0.7rem; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  table.lb td, table.lb td:first-child, table.lb td:last-child { border: 0; border-radius: 0; background: none; width: 100%; text-align: left; padding: 0.4rem 0.8rem; }
+}
+</style>
+<script src="config.js"></script>
+<script src="heist-sync.js"></script>
+<script src="qrcode.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#board">Skip to leaderboard</a>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow">Mission Control</p>
+      <h1>The <span>Heist</span> Leaderboard</h1>
+    </div>
+    <div class="actions">
+      <button type="button" id="toggleSetup" aria-expanded="true" aria-controls="setup">Hide join panel</button>
+      <button type="button" id="newClass">Start new class</button>
+      <button type="button" id="dlScores">Download scores (CSV)</button>
+      <button type="button" id="dlAnswers">Download answers (CSV)</button>
+    </div>
+  </header>
+
+  <div class="notice" id="fileNotice" role="note" hidden>
+    This page is open from your own computer, so phones cannot reach the link in the QR code. Upload all the files in this folder to a web host first (see SETUP.md), then open this page from the web address.
+  </div>
+  <div class="notice" id="demoNotice" role="note" hidden>
+    Demo mode: no score database is connected yet, so scores are shared only between tabs in this browser. Add your Supabase address and key to config.js to collect scores from student phones (see SETUP.md).
+  </div>
+
+  <section class="setup" id="setup" aria-label="Join panel">
+    <div class="card">
+      <h2>Scan to play</h2>
+      <div class="qr-tile" id="qr"></div>
+      <p class="join-text">Or go to<br><strong id="joinShort"></strong></p>
+      <p class="hint" id="joinNote" hidden></p>
+    </div>
+    <div class="card">
+      <div class="field">
+        <label for="session">Class session code</label>
+        <div class="row">
+          <input type="text" id="session" maxlength="32" autocomplete="off" spellcheck="false" aria-describedby="sessionHint">
+        </div>
+        <p class="hint" id="sessionHint">Letters, numbers, dashes. Use a different code for each class section so the boards stay separate. The QR code updates when you change it.</p>
+      </div>
+      <div class="field">
+        <label for="playUrl">Player page address</label>
+        <div class="row">
+          <input type="text" id="playUrl" autocomplete="off" spellcheck="false" aria-describedby="playHint">
+          <button type="button" id="copyLink">Copy student link</button>
+        </div>
+        <p class="hint" id="playHint">Filled in automatically from where this page is hosted.</p>
+      </div>
+      <details class="clip" id="clipPanel">
+        <summary>Play the intro clip for the room</summary>
+        <video id="hostVideo" controls playsinline preload="none" poster="poster.jpg">
+          <source src="intro.mp4" type="video/mp4">
+          Your browser cannot play this video. The transcript is below.
+        </video>
+        <div class="tr">
+          <p>Transcript: a 28 second animated clip with music and no speech. White words appear on a red background:</p>
+          <ol>
+            <li>&ldquo;Welcome team.&rdquo;</li>
+            <li>&ldquo;You&rsquo;ve been hired for a clean-up.&rdquo;</li>
+            <li>A cartoon detective in a fedora and sunglasses appears next to the words &ldquo;Our last accountant was a little&hellip; ethically challenged.&rdquo;</li>
+            <li>An animated colorful RON logo spins in on a black screen.</li>
+            <li>&ldquo;We must clean it up before the Regulators come.&rdquo;</li>
+            <li>&ldquo;Your supervisor will explain the assignment.&rdquo;</li>
+          </ol>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section id="board" aria-labelledby="boardH" tabindex="-1">
+    <h2 id="boardH">Leaderboard</h2>
+    <div class="status-line" role="status" aria-live="polite">
+      <span><span class="dot" id="dot" aria-hidden="true"></span><span id="connText">Connecting…</span></span>
+      <span id="teamCount"></span>
+      <span id="updated"></span>
+    </div>
+    <div class="notice" id="sinceNote" role="note" hidden></div>
+    <div id="boardBody"></div>
+  </section>
+
+  <section class="missed card" id="missed" aria-labelledby="missedH">
+    <h2 id="missedH">Most missed questions</h2>
+    <div id="missedBody"><p>Appears once teams start answering.</p></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var CFG = window.HEIST_CONFIG || {};
+  var STATIONS = { 1: 'Controls', 2: 'Cash Flow', 3: 'Receivables', 4: 'Inventory', 5: 'Depreciation', 6: 'Integration' };
+  var $ = function (id) { return document.getElementById(id); };
+  var lsGet = function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  var lsSet = function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} };
+  var clean = function (s) { return String(s || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var norm = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'); };
+
+  var SHORT = String(CFG.shortLink || '').trim();
+  var SHORT_S = clean(CFG.shortLinkSession) || clean(CFG.defaultSession) || 'EXAM2';
+  var session = clean(new URLSearchParams(location.search).get('s')) || clean(lsGet('heist:host:session')) || clean(CFG.defaultSession) || 'EXAM2';
+  var since = 0;         // only show teams that started after this time (set by Start new class)
+  var expanded = {};     // team key -> true
+  var teams = [];        // collapsed, ranked
+  var lastOk = 0, loadedOnce = false, timer = null;
+
+  // ── join panel ──
+  function defaultPlayUrl() {
+    var u = new URL('play.html', location.href);
+    u.search = ''; u.hash = '';
+    return u.href;
+  }
+  function joinLink() {
+    var base = $('playUrl').value.trim() || defaultPlayUrl();
+    return base + (base.indexOf('?') < 0 ? '?' : '&') + 's=' + encodeURIComponent(session);
+  }
+  function drawQR() {
+    var link = joinLink();
+    try {
+      var qr = qrcode(0, 'M');
+      qr.addData(link);
+      qr.make();
+      $('qr').innerHTML = qr.createSvgTag({ cellSize: 6, margin: 4, scalable: true, alt: 'QR code. Scan it to join session ' + session + '. Link: ' + link, title: 'Join QR code' });
+    } catch (e) {
+      $('qr').textContent = 'The link is too long for a QR code.';
+    }
+    var useShort = SHORT && session === SHORT_S;
+    $('joinShort').textContent = (useShort ? SHORT : link).replace(/^https?:\/\//, '');
+    $('joinNote').hidden = !(SHORT && !useShort);
+    $('joinNote').textContent = 'Your short link only works for session ' + SHORT_S + '. Showing the full link for this session.';
+  }
+  $('playUrl').value = lsGet('heist:host:play') || defaultPlayUrl();
+  $('session').value = session;
+  $('playUrl').addEventListener('input', function () { lsSet('heist:host:play', $('playUrl').value.trim()); drawQR(); });
+  $('session').addEventListener('input', function () {
+    var c = clean($('session').value);
+    if (c !== $('session').value) $('session').value = c;
+    if (!c) return;
+    session = c; lsSet('heist:host:session', c);
+    teams = []; loadedOnce = false; loadSince(); render(); drawQR(); refresh();
+  });
+  $('copyLink').addEventListener('click', function () {
+    var link = joinLink(), b = $('copyLink');
+    var done = function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy student link'; }, 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, function () { window.prompt('Copy this link:', link); });
+    else window.prompt('Copy this link:', link);
+  });
+  $('toggleSetup').addEventListener('click', function () {
+    var open = $('toggleSetup').getAttribute('aria-expanded') === 'true';
+    $('setup').hidden = open;
+    $('toggleSetup').setAttribute('aria-expanded', String(!open));
+    $('toggleSetup').textContent = open ? 'Show join panel' : 'Hide join panel';
+  });
+  if (location.protocol === 'file:') $('fileNotice').hidden = false;
+  if (window.HeistSync && HeistSync.mode === 'local') $('demoNotice').hidden = false;
+
+  // ── data ──
+  function bestFirst(a, b) {
+    return (b.pts - a.pts) || ((b.status === 'done') - (a.status === 'done')) ||
+      ((a.finishedAt && b.finishedAt) ? (a.finishedAt - a.startedAt) - (b.finishedAt - b.startedAt) : 0) ||
+      (b.qdone - a.qdone) || (b.updatedAt - a.updatedAt);
+  }
+  function collapse(records) {
+    var by = {};
+    records.forEach(function (r) {
+      var k = norm(r.team);
+      (by[k] = by[k] || { key: k, recs: [] }).recs.push(r);
+    });
+    var out = Object.keys(by).map(function (k) {
+      var g = by[k], best = g.recs.slice().sort(bestFirst)[0], seen = {}, names = [], devs = {};
+      g.recs.forEach(function (r) {
+        devs[r.device] = 1;
+        (r.members || []).forEach(function (m) { var n = norm(m); if (m && !seen[n]) { seen[n] = 1; names.push(m); } });
+      });
+      return { key: k, team: best.team, members: names, best: best, devices: Object.keys(devs).length };
+    });
+    out.sort(function (a, b) { return bestFirst(a.best, b.best); });
+    return out;
+  }
+  function roundLabel(b) {
+    var q = b.qdone || 0, s = b.stations || 0;
+    if (b.status === 'done') return 'All rounds cleared';
+    if (q === 18 && s === 6) return 'Round 1 complete';
+    if (q < 18) return 'Round 1: ' + s + ' of 6 stations';
+    return 'Round 2: ' + s + ' of 6 stations';
+  }
+  function fmtTime(ms) {
+    if (!ms || ms < 0) return '';
+    var s = Math.round(ms / 1000), m = Math.floor(s / 60);
+    return m + ':' + ('0' + (s % 60)).slice(-2);
+  }
+  function parseId(id) {
+    var m = /^s(\d)q(\d)$/.exec(id || '');
+    return m ? { s: +m[1], q: +m[2] } : { s: 0, q: 0 };
+  }
+  function label(id) { var p = parseId(id); return 'S' + p.s + ' Q' + p.q; }
+
+  function triesHtml(a) {
+    var t = a.t || [];
+    if (!t.length) return '<span class="members">No answer details recorded</span>';
+    var fmt = function (arr) {
+      if (!arr.length) return 'No selection';
+      if (arr.length === 1) return esc(arr[0]);
+      return '<ul>' + arr.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+    };
+    var html = fmt(t[t.length - 1]);
+    if (t.length > 1) {
+      html += '<div class="earlier">' + t.slice(0, -1).map(function (x, i) {
+        return '<div><strong>Try ' + (i + 1) + ':</strong> ' + (x.length > 1 ? esc(x.join('; ')) : fmt(x)) + '</div>';
+      }).join('') + '</div>';
+    }
+    return html;
+  }
+  function detailHtml(team) {
+    var list = (team.best.answers || []).slice().sort(function (a, b) {
+      var x = parseId(a.id), y = parseId(b.id); return (x.s - y.s) || (x.q - y.q);
+    });
+    if (!list.length) return '<p>No questions answered yet.</p>';
+    var rows = list.map(function (a) {
+      var p = parseId(a.id);
+      return '<tr><td>' + esc('Station ' + p.s + ' (' + (STATIONS[p.s] || '') + '), Q' + p.q) + '</td>' +
+        '<td><span class="pts' + a.pts + '">' + a.pts + ' / 2</span></td>' +
+        '<td>' + (a.att || 1) + '</td>' +
+        '<td>' + (a.q ? '<div class="members">' + esc(a.q) + '</div>' : '') + triesHtml(a) + '</td></tr>';
+    }).join('');
+    return '<table class="ans"><caption class="sr-only">Answers for ' + esc(team.team) + '</caption>' +
+      '<thead><tr><th scope="col">Question</th><th scope="col">Points</th><th scope="col">Tries</th><th scope="col">Answer given (last try first)</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  function render() {
+    var body = $('boardBody');
+    $('teamCount').textContent = teams.length + (teams.length === 1 ? ' team' : ' teams') + ' checked in';
+    if (!teams.length) {
+      body.innerHTML = '<p class="empty">' + (loadedOnce ? 'No teams yet. Show the QR code and have them scan it.' : 'Loading…') + '</p>';
+      renderMissed();
+      return;
+    }
+    var rank = 0, prev = null, prevRank = 0;
+    var rows = teams.map(function (t, i) {
+      var b = t.best;
+      rank = i + 1;
+      var same = prev && prev.pts === b.pts && prev.status === 'done' && b.status === 'done' && (prev.finishedAt - prev.startedAt) === (b.finishedAt - b.startedAt);
+      var shown = same ? prevRank : rank;
+      prev = b; prevRank = shown;
+      var pct = Math.round((b.pts / (b.max || 72)) * 100);
+      var statusTxt = b.status === 'done' ? 'Finished' : b.status === 'playing' ? 'Playing' : 'Checked in';
+      var time = b.status === 'done' ? fmtTime(b.finishedAt - b.startedAt) : '';
+      var open = !!expanded[t.key];
+      var extra = (t.devices > 1 ? ' · ' + t.devices + ' devices' : '');
+      var main = '<tr class="row-team">' +
+        '<td><span class="rank" aria-label="Rank ' + shown + '">' + shown + '</span></td>' +
+        '<td><div class="team-name">' + esc(t.team) + '</div><div class="members">' + esc(t.members.join(', ')) + esc(extra) + '</div>' +
+        '<button type="button" data-k="' + esc(t.key) + '" aria-expanded="' + open + '" style="margin-top:0.4rem">' + (open ? 'Hide answers' : 'See answers') + '</button></td>' +
+        '<td><div class="score">' + b.pts + ' <small>/ ' + (b.max || 72) + ' (' + pct + '%)</small></div><div class="bar" aria-hidden="true"><i style="width:' + pct + '%"></i></div>' +
+        (pct >= 85 ? '<span class="badge-tag">Badge level</span>' : '') + '</td>' +
+        '<td>' + b.qdone + ' of 36 questions<br>' + roundLabel(b) + '</td>' +
+        '<td>' + esc(time || 'In progress') + '</td>' +
+        '<td><span class="chip ' + (b.status === 'done' ? 'done' : 'playing') + '">' + statusTxt + '</span></td></tr>';
+      var det = open ? '<tr class="detail"><td colspan="6">' + detailHtml(t) + '</td></tr>' : '';
+      return main + det;
+    }).join('');
+    body.innerHTML = '<table class="lb"><caption class="sr-only">Teams ranked by points</caption>' +
+      '<thead><tr><th scope="col">Rank</th><th scope="col">Team</th><th scope="col">Score</th><th scope="col">Progress</th><th scope="col">Time</th><th scope="col">Status</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    renderMissed();
+  }
+  $('boardBody').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-k]');
+    if (!b) return;
+    var k = b.getAttribute('data-k');
+    expanded[k] = !expanded[k];
+    render();
+    var again = document.querySelector('button[data-k="' + k.replace(/"/g, '') + '"]');
+    if (again) again.focus();
+  });
+
+  function renderMissed() {
+    var stats = {};
+    teams.forEach(function (t) {
+      (t.best.answers || []).forEach(function (a) {
+        var s = stats[a.id] = stats[a.id] || { id: a.id, n: 0, miss: 0, zero: 0, q: a.q || '' };
+        s.n++; if (a.pts < 2) s.miss++; if (a.pts === 0) s.zero++;
+        if (!s.q && a.q) s.q = a.q;
+      });
+    });
+    var arr = Object.keys(stats).map(function (k) { return stats[k]; })
+      .filter(function (s) { return s.miss > 0; })
+      .sort(function (a, b) { return (b.miss / b.n - a.miss / a.n) || (b.zero - a.zero) || (b.n - a.n); })
+      .slice(0, 6);
+    if (!arr.length) { $('missedBody').innerHTML = '<p>Appears once teams start answering. Questions missed on the first try by the most teams are listed here, so you can review them with the room.</p>'; return; }
+    $('missedBody').innerHTML = '<ol>' + arr.map(function (s) {
+      var p = parseId(s.id);
+      return '<li><strong>Station ' + p.s + ' (' + esc(STATIONS[p.s] || '') + '), Q' + p.q + ':</strong> ' + s.miss + ' of ' + s.n + ' teams missed it on the first try' +
+        (s.zero ? ' (' + s.zero + ' never got it)' : '') + '.<div class="q">' + esc(s.q) + '</div></li>';
+    }).join('') + '</ol>';
+  }
+
+  // ── polling ──
+  function setConn(ok, text) {
+    $('dot').className = 'dot ' + (ok ? 'ok' : 'fail');
+    $('connText').textContent = text;
+  }
+  var busy = false;
+  function refresh() {
+    if (busy || !window.HeistSync) return;
+    busy = true;
+    var mine = session;
+    HeistSync.list(mine).then(function (recs) {
+      if (mine !== session) return;
+      teams = collapse(recs.filter(function (r) { return !since || (r.startedAt || 0) >= since; }));
+      loadedOnce = true; lastOk = Date.now();
+      setConn(true, HeistSync.mode === 'local' ? 'Demo mode (this browser only)' : 'Connected to score database');
+      $('updated').textContent = 'Updated ' + new Date(lastOk).toLocaleTimeString();
+      render();
+    }).catch(function () {
+      setConn(false, 'Cannot reach the score database. Showing the last scores and retrying…');
+    }).then(function () { busy = false; });
+  }
+  function loop() {
+    clearTimeout(timer);
+    timer = setTimeout(function () { if (!document.hidden) refresh(); loop(); }, 5000);
+  }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
+  if (window.HeistSync) HeistSync.onLocalChange(function (s) { if (s === session) refresh(); });
+
+  // ── start a new class without losing old data ──
+  function loadSince() { since = Number(lsGet('heist:host:since:' + session)) || 0; showSince(); }
+  function showSince() {
+    var n = $('sinceNote');
+    if (!since) { n.hidden = true; return; }
+    n.hidden = false;
+    n.innerHTML = 'Showing only teams that started after ' + esc(new Date(since).toLocaleString()) + '. Earlier classes are still saved in your Google Sheet. <button type="button" id="showAll">Show all teams for this session</button>';
+    $('showAll').addEventListener('click', function () {
+      since = 0; lsSet('heist:host:since:' + session, '0'); showSince(); refresh();
+    });
+  }
+  $('newClass').addEventListener('click', function () {
+    if (!window.confirm('Start a new class? The board will clear. Scores from earlier classes stay saved in your Google Sheet, and you can download them first with the CSV buttons.')) return;
+    // 2 minute cushion in case a device clock is slightly off
+    since = Date.now() - 120000;
+    lsSet('heist:host:since:' + session, String(since));
+    teams = []; expanded = {}; loadedOnce = true;
+    showSince(); render(); refresh();
+    $('newClass').focus();
+  });
+
+  // ── CSV export ──
+  function stamp() { var d = new Date(), z = function (n) { return ('0' + n).slice(-2); }; return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + '-' + z(d.getHours()) + z(d.getMinutes()); }
+  function csvCell(v) {
+    v = String(v == null ? '' : v);
+    if (/^[=+\-@]/.test(v)) v = "'" + v;
+    return '"' + v.replace(/"/g, '""') + '"';
+  }
+  function download(name, rows) {
+    var text = '﻿' + rows.map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
+    var url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+    var a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+  $('dlScores').addEventListener('click', function () {
+    var rows = [['Rank', 'Team', 'Members', 'Points', 'Out of', 'Percent', 'Questions answered', 'Stations cleared', 'First-try correct', 'Status', 'Devices', 'Time (m:ss)']];
+    teams.forEach(function (t, i) {
+      var b = t.best;
+      rows.push([i + 1, t.team, t.members.join('; '), b.pts, b.max || 72, Math.round(b.pts / (b.max || 72) * 100) + '%', b.qdone, b.stations, b.firstTry, b.status, t.devices, b.status === 'done' ? fmtTime(b.finishedAt - b.startedAt) : '']);
+    });
+    download('the-heist-scores-' + session + '-' + stamp() + '.csv', rows);
+  });
+  $('dlAnswers').addEventListener('click', function () {
+    var rows = [['Team', 'Members', 'Station', 'Question', 'Points', 'Tries', 'Question text', 'Final answer', 'Earlier tries']];
+    teams.forEach(function (t) {
+      (t.best.answers || []).slice().sort(function (a, b) { var x = parseId(a.id), y = parseId(b.id); return (x.s - y.s) || (x.q - y.q); }).forEach(function (a) {
+        var p = parseId(a.id), tr = a.t || [];
+        rows.push([t.team, t.members.join('; '), 'Station ' + p.s + ' ' + (STATIONS[p.s] || ''), 'Q' + p.q, a.pts, a.att || 1, a.q || '',
+          tr.length ? tr[tr.length - 1].join('; ') : '', tr.slice(0, -1).map(function (x, i) { return 'Try ' + (i + 1) + ': ' + x.join('; '); }).join(' | ')]);
+      });
+    });
+    download('the-heist-answers-' + session + '-' + stamp() + '.csv', rows);
+  });
+
+  loadSince(); drawQR(); render(); refresh(); loop();
+})();
+</script>
+</body>
+</html>
